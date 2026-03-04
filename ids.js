@@ -5,6 +5,6 @@ export const IDS = [
 "917083270345@s.whatsapp.net",
 
     // Future WhatsApp group
-    "120363045640332810@g.us"
+    //"120363045640332810@g.us"
 
 ];
