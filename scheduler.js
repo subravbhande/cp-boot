@@ -63,20 +63,40 @@ export function getWhatsAppSocket() {
 
 }
 
+async function ensureConnection() {
+
+    if (!whatsAppSocket || !whatsAppSocket.user) {
+
+        console.log("WhatsApp connection missing. Reconnecting...");
+
+        await initializeWhatsAppConnection();
+
+    }
+
+}
+
 export function startConnectionHealthCheck() {
 
     setInterval(async () => {
 
         console.log("Running WhatsApp connection health check...");
 
-        if (!whatsAppSocket) {
+        try {
 
-            console.log("Socket missing. Reconnecting...");
-            await initializeWhatsAppConnection();
+            if (!whatsAppSocket || !whatsAppSocket.user) {
 
-        } else {
+                console.log("Socket not active. Reconnecting...");
+                await initializeWhatsAppConnection();
 
-            console.log("WhatsApp connection active");
+            } else {
+
+                console.log("WhatsApp connection active");
+
+            }
+
+        } catch (err) {
+
+            console.log("Health check reconnect failed:", err);
 
         }
 
@@ -88,7 +108,7 @@ export function scheduleContestNotifications() {
 
     const dailyJob = scheduleJob(
         'contest-notifications',
-        '0 0 5 * * *',
+        '0 30 5 * * *',
         async () => {
 
             console.log(`Running contest notifications at ${new Date().toLocaleString()}`);
@@ -96,29 +116,26 @@ export function scheduleContestNotifications() {
             if (await hasAlreadySentToday()) {
 
                 console.log("Contest message already sent today. Skipping.");
-
                 return;
 
             }
 
             try {
 
+                await ensureConnection();
+
                 if (whatsAppSocket) {
 
                     await moveFurther(whatsAppSocket);
+                    await markAsSentToday();
+
+                    console.log("Contest notifications sent successfully");
 
                 } else {
 
-                    console.log("Socket missing. Reinitializing...");
-                    await initializeWhatsAppConnection();
-
-                    if (whatsAppSocket) {
-                        await moveFurther(whatsAppSocket);
-                    }
+                    console.log("Failed to establish WhatsApp connection");
 
                 }
-
-                await markAsSentToday();
 
             } catch (error) {
 
@@ -146,20 +163,13 @@ export function scheduleContestReminders() {
 
             try {
 
+                await ensureConnection();
+
                 const { getReminders } = await import('./sendReminder.js');
 
                 if (whatsAppSocket) {
 
                     await getReminders(whatsAppSocket);
-
-                } else {
-
-                    console.log("Socket missing. Reconnecting...");
-                    await initializeWhatsAppConnection();
-
-                    if (whatsAppSocket) {
-                        await getReminders(whatsAppSocket);
-                    }
 
                 }
 
