@@ -66,7 +66,7 @@ async function getRemindersWithSocket(sock) {
         const timeWindow = 30 * 60 * 1000; // 30 minutes
         const windowEnd = new Date(currentTime.getTime() + timeWindow);
 
-        console.log("Checking reminders at", currentTime.toLocaleString());
+        console.log("Checking reminders at:", currentTime.toLocaleString());
 
         const remindersToSend = reminders.filter(reminder => {
 
@@ -82,8 +82,10 @@ async function getRemindersWithSocket(sock) {
         });
 
         if (remindersToSend.length === 0) {
+
             console.log("No reminders due within the next 30 minutes.");
             return;
+
         }
 
         let message = `🛑 *REMINDER* 🛑\n\n`;
@@ -162,4 +164,5 @@ async function getRemindersWithSocket(sock) {
 }
 
 export { getRemindersWithSocket };
+
 
