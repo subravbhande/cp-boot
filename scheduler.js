@@ -1,97 +1,201 @@
-import { scheduleJob, scheduledJobs, cancelJob } from 'node-schedule';
-import { connectionLogic } from './app.js';
-import { moveFurther } from './app.js';
+import { scheduleJob } from 'node-schedule';
+import { connectionLogic, moveFurther } from './app.js';
+import fs from 'fs/promises';
 
 let whatsAppSocket = null;
 
-export async function initializeWhatsAppConnection() {
-    console.log("Initializing persistent WhatsApp connection...");
-    
-    const onConnectionEstablished = async (sock) => {
-        whatsAppSocket = sock;
-        console.log("WhatsApp connection established and ready for use");
-        return sock;
+const STATE_FILE = './botState.json';
+
+async function hasAlreadySentToday() {
+
+    try {
+
+        const data = await fs.readFile(STATE_FILE, 'utf8');
+        const state = JSON.parse(data);
+
+        const today = new Date().toDateString();
+
+        return state.lastNotificationDate === today;
+
+    } catch {
+
+        return false;
+
+    }
+
+}
+
+async function markAsSentToday() {
+
+    const state = {
+        lastNotificationDate: new Date().toDateString()
     };
-    
+
+    await fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2));
+
+}
+
+export async function initializeWhatsAppConnection() {
+
+    console.log("Initializing persistent WhatsApp connection...");
+
+    const onConnectionEstablished = async (sock) => {
+
+        whatsAppSocket = sock;
+
+        console.log("WhatsApp connection established and ready");
+
+        return sock;
+
+    };
+
     await connectionLogic(onConnectionEstablished);
+
 }
 
 export function getWhatsAppSocket() {
+
     if (!whatsAppSocket) {
-        console.log("Warning: WhatsApp socket is null, connection may have been lost");
+        console.log("Warning: WhatsApp socket is null");
     }
+
     return whatsAppSocket;
+
 }
 
 export function startConnectionHealthCheck() {
+
     setInterval(async () => {
-        console.log("Performing WhatsApp connection health check...");
-        
+
+        console.log("Running WhatsApp connection health check...");
+
         if (!whatsAppSocket) {
-            console.log("WhatsApp socket is null, attempting to reconnect...");
+
+            console.log("Socket missing. Reconnecting...");
             await initializeWhatsAppConnection();
+
         } else {
-            console.log("WhatsApp connection is active");
+
+            console.log("WhatsApp connection active");
+
         }
+
     }, 5 * 60 * 1000);
+
 }
 
 export function scheduleContestNotifications() {
-    const dailyJob = scheduleJob('contest-notifications', '0 0 5 * * *', async () => {
-        console.log(`Running scheduled contest notifications at ${new Date().toLocaleString()}`);
-        
-        try {
-            if (whatsAppSocket) {
-                await moveFurther(whatsAppSocket);
-            } else {
-                console.log("WhatsApp connection not found, reinitializing...");
-                await initializeWhatsAppConnection();
+
+    const dailyJob = scheduleJob(
+        'contest-notifications',
+        '0 0 5 * * *',
+        async () => {
+
+            console.log(`Running contest notifications at ${new Date().toLocaleString()}`);
+
+            if (await hasAlreadySentToday()) {
+
+                console.log("Contest message already sent today. Skipping.");
+
+                return;
+
             }
-        } catch (error) {
-            console.error("Error in scheduled contest notifications:", error);
+
+            try {
+
+                if (whatsAppSocket) {
+
+                    await moveFurther(whatsAppSocket);
+
+                } else {
+
+                    console.log("Socket missing. Reinitializing...");
+                    await initializeWhatsAppConnection();
+
+                    if (whatsAppSocket) {
+                        await moveFurther(whatsAppSocket);
+                    }
+
+                }
+
+                await markAsSentToday();
+
+            } catch (error) {
+
+                console.error("Contest notification error:", error);
+
+            }
+
         }
-    });
-    
-    console.log("Contest notifications scheduled to run at 5 AM daily");
+    );
+
+    console.log("Contest notifications scheduled for 5:00 AM daily");
+
     return dailyJob;
+
 }
 
 export function scheduleContestReminders() {
-    const reminderJob = scheduleJob('contest-reminders', '*/30 * * * *', async () => {
-        console.log(`Checking for upcoming contest reminders at ${new Date().toLocaleString()}`);
-        
-        try {
-            const { getReminders } = await import('./sendReminder.js');
-            
-            if (whatsAppSocket) {
-                await getReminders();
-            } else {
-                console.log("WhatsApp connection not found for reminders, reinitializing...");
-                await initializeWhatsAppConnection();
-                setTimeout(async () => {
+
+    const reminderJob = scheduleJob(
+        'contest-reminders',
+        '*/5 * * * *',
+        async () => {
+
+            console.log(`Checking reminders at ${new Date().toLocaleString()}`);
+
+            try {
+
+                const { getReminders } = await import('./sendReminder.js');
+
+                if (whatsAppSocket) {
+
+                    await getReminders(whatsAppSocket);
+
+                } else {
+
+                    console.log("Socket missing. Reconnecting...");
+                    await initializeWhatsAppConnection();
+
                     if (whatsAppSocket) {
-                        const { getReminders } = await import('./sendReminder.js');
-                        await getReminders();
+                        await getReminders(whatsAppSocket);
                     }
-                }, 5000);
+
+                }
+
+            } catch (error) {
+
+                console.error("Reminder scheduler error:", error);
+
             }
-        } catch (error) {
-            console.error("Error in scheduled contest reminders:", error);
+
         }
-    });
-    
-    console.log("Contest reminders scheduled to run every 5 minutes");
+    );
+
+    console.log("Contest reminders scheduled every 5 minutes");
+
     return reminderJob;
+
 }
 
 export function initializeScheduler() {
-    initializeWhatsAppConnection().then(() => {
-        scheduleContestNotifications();
-        scheduleContestReminders();
-        startConnectionHealthCheck();
-        
-        console.log("Scheduling system initialized successfully");
-    }).catch(error => {
-        console.error("Failed to initialize scheduler:", error);
-    });
+
+    initializeWhatsAppConnection()
+        .then(() => {
+
+            scheduleContestNotifications();
+            scheduleContestReminders();
+            startConnectionHealthCheck();
+
+            console.log("Scheduler initialized successfully");
+
+        })
+        .catch(error => {
+
+            console.error("Scheduler initialization failed:", error);
+
+        });
+
 }
+
+

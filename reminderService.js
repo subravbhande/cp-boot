@@ -10,17 +10,35 @@ export async function setReminder(messageString, startTime) {
 
         const contestTime = new Date(startTime);
 
-        // reminder = contest time - reminderOffset
-        const reminderTime = new Date(contestTime.getTime() - config.time.reminderOffset);
+        // reminder time = contest time - reminder offset
+        const reminderTime = new Date(
+            contestTime.getTime() - config.time.reminderOffset
+        );
 
         const reminderObject = {
             time: reminderTime,
             message: messageString
         };
 
-        const reminderEntry = JSON.stringify(reminderObject, null, 2) + ',\n';
+        let reminders = [];
 
-        await fs.appendFile(config.paths.reminderFile, reminderEntry);
+        // Read existing reminders safely
+        try {
+            const fileData = await fs.readFile(config.paths.reminderFile, 'utf8');
+            reminders = JSON.parse(fileData);
+        } catch (err) {
+            // If file does not exist or invalid JSON → start fresh
+            reminders = [];
+        }
+
+        // Add new reminder
+        reminders.push(reminderObject);
+
+        // Save back as valid JSON
+        await fs.writeFile(
+            config.paths.reminderFile,
+            JSON.stringify(reminders, null, 2)
+        );
 
         if (USE_WINDOWS_SCHEDULER) {
 
@@ -56,7 +74,7 @@ export async function setReminder(messageString, startTime) {
 
         } else {
 
-            console.log(`Reminder saved for ${reminderTime.toLocaleString()} (using node-schedule)`);
+            console.log(`Reminder saved for ${reminderTime.toLocaleString()} (using scheduler)`);
 
         }
 
@@ -67,3 +85,5 @@ export async function setReminder(messageString, startTime) {
 
     }
 }
+
+
