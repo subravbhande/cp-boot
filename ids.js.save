@@ -1,10 +1,5 @@
+// Backup file; does not contain real IDs.
+// Use the primary configuration (e.g., ids.js or environment/config) for actual recipient/group IDs.
 export const IDS = [
-
-    // Personal testing number
-    //"918766722453@s.whatsapp.net",
-    //"917083270345@s.whatsapp.net",
-
-    // Future WhatsApp group
-    "120363045640332810@g.us"
-
+    // Intentionally left empty to avoid storing real IDs in this backup file.
 ];
