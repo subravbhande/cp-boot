@@ -60,10 +60,11 @@ async function getRemindersWithSocket(sock) {
 
         }
 
+        // Current server time
         const currentTime = new Date();
-        currentTime.setTime(currentTime.getTime() + config.time.utcOffset);
 
-        const timeWindow = 30 * 60 * 1000; // 30 minutes
+        // 30 minute reminder window
+        const timeWindow = 30 * 60 * 1000;
         const windowEnd = new Date(currentTime.getTime() + timeWindow);
 
         console.log("Checking reminders at:", currentTime.toLocaleString());
@@ -144,6 +145,7 @@ async function getRemindersWithSocket(sock) {
 
         }
 
+        // Remove sent reminders
         const remainingReminders = reminders.filter(
             reminder => !remindersToSend.includes(reminder)
         );
@@ -164,5 +166,3 @@ async function getRemindersWithSocket(sock) {
 }
 
 export { getRemindersWithSocket };
-
-
