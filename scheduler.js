@@ -146,7 +146,7 @@ export function scheduleContestNotifications() {
         }
     );
 
-    console.log("Contest notifications scheduled for 5:00 AM daily");
+    console.log("Contest notifications scheduled for 5:30 AM daily");
 
     return dailyJob;
 
