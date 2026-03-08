@@ -169,7 +169,7 @@ export function scheduleContestReminders() {
 
                 if (whatsAppSocket) {
 
-                    await getReminders(whatsAppSocket);
+                    await getReminders();
 
                 }
 
