@@ -290,7 +290,7 @@ Happy Coding!
 | Baileys | WhatsApp Web API |
 | node-schedule | Task scheduling |
 | PM2 | Process manager |
-| Axios | API requests |
+| node-ical | Contest calendar parsing |
 | Pino | Logging |
 
 ---
