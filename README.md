@@ -188,7 +188,7 @@ Create a `.env` file in the root directory.
 
 ```
 
-HELP_NUMBER=919876543210@s.whatsapp.net
+HELP_NUMBER=9198765XXXXX@s.whatsapp.net
 ```
 
 `HELP_NUMBER` is used for sending error alerts.
