@@ -2,170 +2,305 @@
 
 ## High-Level Design
 
-The Contest-Reminder-WhatsApp-Bot follows a simple, efficient architecture with three main components: the Bot Server, external data sources, and WhatsApp as the delivery platform.
+CP-Boot follows a lightweight event-driven architecture designed for reliability and continuous execution.  
+The system consists of four primary layers:
+
+1. **External Data Source** – Google Calendar providing contest information  
+2. **Bot Server (Node.js)** – Scheduler, processing logic, and WhatsApp client  
+3. **Storage Layer** – File-based reminder storage and session state  
+4. **Delivery Layer** – WhatsApp groups and users receiving notifications
 
 ```mermaid
 graph TB
-    subgraph External["External Services"]
-        API["Clist.by API<br/><br/>Contest Data<br/><br/>• CodeChef<br/>• Codeforces<br/>• LeetCode<br/>• AtCoder"]
+    subgraph External["External Data Source"]
+        GC["Google Calendar<br/><br/>Contest Schedule<br/><br/>• Codeforces<br/>• CodeChef<br/>• LeetCode<br/>• AtCoder"]
     end
     
     subgraph Server["Bot Server - Node.js"]
-        SCHED["Scheduler Module<br/><br/>• Daily at 5:00 AM<br/>• Every 30 minutes"]
-        PROC["Data Processor<br/><br/>• Parse JSON<br/>• Filter Contests<br/>• Format Messages<br/>• Set Reminders"]
-        WA["WhatsApp Client<br/><br/>• Baileys Library<br/>• Session Manager<br/>• Message Sender"]
+        SS["Service Layer<br/><br/>startService.js<br/><br/>• Boot Service<br/>• Initialize Scheduler<br/>• Heartbeat Monitor"]
+        
+        SCH["Scheduler Module<br/><br/>scheduler.js<br/><br/>• Daily Notification (5 AM)<br/>• Reminder Check (5 min)<br/>• Connection Health Check"]
+        
+        PROC["Data Processor<br/><br/>getContestDetails.js<br/><br/>• Parse Calendar Data<br/>• Format Contest Messages<br/>• Generate Reminders"]
+        
+        WA["WhatsApp Client<br/><br/>app.js<br/><br/>• Baileys Library<br/>• Persistent Session<br/>• Message Sender"]
+    end
+    
+    subgraph Storage["Storage Layer"]
+        RF["reminderFile.txt<br/><br/>Stores Pending Reminders"]
+        AUTH["auth_info_baileys/<br/><br/>WhatsApp Session Files"]
     end
     
     subgraph Delivery["Message Delivery"]
-        WAP["WhatsApp Platform<br/><br/>Target Recipients:<br/>• User Groups<br/>• Individual Users"]
+        WAP["WhatsApp Platform<br/><br/>Target Recipients:<br/>• Groups<br/>• Individual Users"]
     end
-    
-    API -->|"HTTP GET<br/>Fetch Contest Data"| PROC
-    SCHED -->|Trigger| PROC
-    PROC --> WA
-    WA -->|"WhatsApp Protocol<br/>Send Formatted Messages"| WAP
-    
-    classDef externalClass fill:#1565c0,stroke:#0d47a1,stroke-width:3px,color:#ffffff
-    classDef schedulerClass fill:#ef6c00,stroke:#e65100,stroke-width:3px,color:#ffffff
-    classDef processorClass fill:#c62828,stroke:#b71c1c,stroke-width:3px,color:#ffffff
-    classDef whatsappClass fill:#00695c,stroke:#004d40,stroke-width:3px,color:#ffffff
-    
-    class API externalClass
-    class SCHED schedulerClass
-    class PROC processorClass
-    class WA whatsappClass
+
+    GC --> PROC
+    SS --> SCH
+    SCH --> PROC
+    PROC --> RF
+    SCH --> WA
+    WA --> WAP
+    AUTH --> WA
 ```
 
-## Data Flow
+---
 
-### 1. Contest Notification Flow
+# Data Flow
+
+## 1. Daily Contest Notification Flow
+
+Every day at **5:00 AM IST**, the system sends contest updates.
 
 ```mermaid
 flowchart TD
-    A["Trigger<br/><br/>Daily at 5:00 AM IST"] --> B["Fetch Data from Clist.by API<br/><br/>GET /api/v4/contest/"]
-    B -->|"JSON Response<br/>contests: ..."| C["Process Response<br/><br/>• Parse JSON<br/>• Filter by platform<br/>• Filter by date<br/>• Convert timezone"]
-    C -->|"Structured Data"| D["Format Message<br/><br/>• Create text format<br/>• Add contest details<br/>• Include links<br/>• Set reminders"]
-    D -->|"WhatsApp Message"| E["Send to WhatsApp<br/><br/>• Connect to groups<br/>• Send formatted msg<br/>• Log delivery"]
+    A["Scheduler Trigger<br/><br/>Daily 5:00 AM IST"] --> B["Fetch Contest Data<br/><br/>Google Calendar"]
     
-    classDef triggerClass fill:#ef6c00,stroke:#e65100,stroke-width:3px,color:#ffffff
-    classDef fetchClass fill:#1565c0,stroke:#0d47a1,stroke-width:3px,color:#ffffff
-    classDef processClass fill:#c62828,stroke:#b71c1c,stroke-width:3px,color:#ffffff
-    classDef formatClass fill:#6a1b9a,stroke:#4a148c,stroke-width:3px,color:#ffffff
-    classDef sendClass fill:#2e7d32,stroke:#1b5e20,stroke-width:3px,color:#ffffff
+    B --> C["Process Contest Data<br/><br/>• Parse calendar events<br/>• Filter today's contests<br/>• Filter tomorrow's contests"]
     
-    class A triggerClass
-    class B fetchClass
-    class C processClass
-    class D formatClass
-    class E sendClass
+    C --> D["Format Message<br/><br/>• Contest name<br/>• Start time<br/>• Duration<br/>• Contest link"]
+    
+    D --> E["Create Reminder Entry<br/><br/>ContestTime - 30 min"]
+    
+    E --> F["Store Reminder<br/><br/>reminderFile.txt"]
+    
+    D --> G["Send WhatsApp Message<br/><br/>via Baileys"]
 ```
 
-### 2. Reminder Flow
+---
+
+# 2. Contest Reminder Flow
+
+The reminder system checks every **5 minutes**.
 
 ```mermaid
 flowchart TD
-    A["Trigger<br/><br/>Every 30 minutes"] --> B["Check Reminder File<br/><br/>Load pending reminders"]
-    B --> C{"Match Current Time<br/><br/>Is it time to remind?"}
-    C -->|YES| D["Send Reminder<br/><br/>• Format reminder msg<br/>• Send to WhatsApp<br/>• Remove from file"]
-    C -->|NO| E["Wait for next check"]
+    A["Scheduler Trigger<br/><br/>Every 5 minutes"] --> B["Load reminderFile.txt"]
     
-    classDef triggerClass fill:#ef6c00,stroke:#e65100,stroke-width:3px,color:#ffffff
-    classDef checkClass fill:#1565c0,stroke:#0d47a1,stroke-width:3px,color:#ffffff
-    classDef decisionClass fill:#c62828,stroke:#b71c1c,stroke-width:3px,color:#ffffff
-    classDef actionClass fill:#2e7d32,stroke:#1b5e20,stroke-width:3px,color:#ffffff
-    classDef waitClass fill:#ad1457,stroke:#880e4f,stroke-width:3px,color:#ffffff
+    B --> C{"Reminder Time Reached?"}
     
-    class A triggerClass
-    class B checkClass
-    class C decisionClass
-    class D actionClass
-    class E waitClass
+    C -->|YES| D["Send Reminder Message"]
+    
+    D --> E["Send via WhatsApp"]
+    
+    E --> F["Remove Reminder from File"]
+    
+    C -->|NO| G["Wait for next check"]
 ```
 
-## Component Details
+---
 
-### 1. Scheduler Module
+# Core Components
 
-Manages all automated tasks and timing:
+## 1. Service Layer
 
-- **Daily Contest Notifications**: Runs at 5:00 AM IST
-- **Reminder Checks**: Every 30 minutes
+**File:** `startService.js`
 
-### 2. Data Processor
+Responsible for:
 
-Handles all contest data operations:
+- bootstrapping the system
+- initializing the scheduler
+- maintaining heartbeat logs
+- keeping the Node.js process alive
 
-- Fetches data from Clist.by API
-- Filters contests by platform (CodeChef, Codeforces, LeetCode, AtCoder)
-- Filters contests by date (today and tomorrow)
-- Converts timezones (UTC to IST)
-- Formats messages for WhatsApp
-- Creates and stores reminders
+Heartbeat logs every **5 minutes** to confirm service health.
 
-### 3. WhatsApp Client
+---
 
-Manages all WhatsApp communication:
+## 2. Scheduler Module
 
-- Uses Baileys library for WhatsApp Web API
-- Handles QR code authentication
-- Maintains persistent sessions
-- Sends messages to groups and individuals
-- Auto-reconnection logic
+**File:** `scheduler.js`
 
-### 4. WhatsApp Integration Layer
+Manages automated jobs:
 
-#### Connection Management
+| Task | Frequency |
+|-----|-----|
+Daily contest notifications | 5:00 AM IST |
+Reminder checks | Every 5 minutes |
+Connection health check | Every 5 minutes |
+
+The scheduler coordinates all automation tasks.
+
+---
+
+## 3. Data Processor
+
+**Files:**
+
+- `getContestDetails.js`
+- `sendReminder.js`
+
+Responsibilities:
+
+- fetch contest events from Google Calendar
+- process contest metadata
+- format WhatsApp messages
+- create reminder entries
+- manage reminder file updates
+
+---
+
+## 4. WhatsApp Client
+
+**File:** `app.js`
+
+Handles all WhatsApp communication.
+
+Features:
+
+- Baileys WhatsApp Web API
+- persistent session authentication
+- automatic reconnection
+- group metadata caching
+- message delivery
+
+---
+
+# WhatsApp Connection Architecture
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Closed
-    Closed --> Open: QR Code Scan
-    Open --> Closed: Connection Lost
-    Closed --> Open: Auto-reconnect
-    Open --> [*]: Logout
+    [*] --> Disconnected
+    
+    Disconnected --> QRAuthentication
+    QRAuthentication --> Connected
+    
+    Connected --> Disconnected: Connection Lost
+    Disconnected --> Connected: Auto Reconnect
+    
+    Connected --> RestartRequired
+    RestartRequired --> Connected
 ```
 
-**Disconnect Handling**:
-- `loggedOut`: Requires re-authentication
-- `connectionClosed`: Auto-reconnect
-- `connectionLost`: Auto-reconnect
-- `connectionReplaced`: Manual restart required
-- `restartRequired`: Auto-restart
-- `timedOut`: Auto-reconnect
+Disconnect handling:
 
-#### Authentication
-- Uses Baileys multi-file auth state
-- Stores credentials in `auth_info_baileys/`
-- QR code generated on first run
-- Persistent session across restarts
+| Event | Action |
+|------|------|
+connectionClosed | Auto reconnect |
+connectionLost | Auto reconnect |
+timedOut | Auto reconnect |
+restartRequired | Restart connection |
+loggedOut | Re-authenticate |
 
-### 5. Storage Layer
+---
 
-#### File-Based Storage
+# Storage Layer
 
-**auth_info_baileys/**
-- Session credentials
-- Pre-keys for encryption
-- Device information
-- App state sync data
+## File-Based Storage
 
-**reminderFile.txt**
+### WhatsApp Session
+
+```
+auth_info_baileys/
+```
+
+Contains:
+
+- encryption keys
+- session credentials
+- device identity
+- WhatsApp state sync data
+
+---
+
+### Reminder Storage
+
+```
+reminderFile.txt
+```
+
+Example:
+
 ```json
-{
-  "time": "2024-01-15T10:30:00.000Z",
-  "message": "Contest reminder message"
-}
+[
+  {
+    "time": "2026-03-08T14:05:00.000Z",
+    "message": "🏆 Codeforces Round\n⏰ Time: 08:05 pm\n⏳ Duration: 3h\n🔗 https://codeforces.com/contest/..."
+  }
+]
 ```
 
-#### In-Memory Storage (NodeCache)
+Each reminder entry contains:
+
+| Field | Description |
+|-----|-----|
+time | contest start time |
+message | formatted reminder message |
+
+---
+
+## In-Memory Storage
+
+### Group Metadata Cache
+
+Using **NodeCache**:
 
 ```javascript
-groupCache = {
-  stdTTL: 300,  // 5 minutes
-  useClones: false
-}
+groupCache = new NodeCache({
+    stdTTL: 300,
+    useClones: false
+});
 ```
-- Caches group metadata
-- Reduces API calls
-- Improves performance
 
+Purpose:
+
+- cache WhatsApp group metadata
+- reduce repeated API calls
+- improve performance
+
+---
+
+# Deployment Architecture
+
+The bot is designed for **cloud deployment**.
+
+Typical production setup:
+
+```
+Ubuntu Server
+      │
+      ▼
+Node.js Runtime
+      │
+      ▼
+PM2 Process Manager
+      │
+      ▼
+CP-Boot Bot Service
+      │
+      ▼
+WhatsApp Web (Baileys)
+```
+
+PM2 provides:
+
+- process monitoring
+- automatic restarts
+- centralized logs
+- stable long-running execution
+
+---
+
+# Reliability Features
+
+CP-Boot includes several reliability mechanisms:
+
+- automatic WhatsApp reconnection
+- heartbeat service monitoring
+- reminder persistence via file storage
+- PM2 crash recovery
+- health check scheduler
+
+These features ensure the bot runs continuously without manual intervention.
+
+---
+
+# Future Architecture Improvements
+
+Potential upgrades:
+
+- database storage (MongoDB / PostgreSQL)
+- admin dashboard
+- multi-calendar support
+- distributed bot instances
+- webhook-based contest updates
