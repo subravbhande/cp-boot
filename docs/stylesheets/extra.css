@@ -1,28 +1,65 @@
+/* Mermaid diagrams formatting */
 .mermaid {
     white-space: pre;
+    text-align: center;
+    margin: 20px 0;
 }
 
+/* Code block container */
+pre {
+    position: relative;
+    padding: 12px;
+    overflow: auto;
+    border-radius: 6px;
+}
+
+/* Copy button for code blocks */
 .copy-code-button {
     position: absolute;
-    top: 5px;
-    right: 5px;
+    top: 6px;
+    right: 6px;
     background-color: #fcfcfc;
     border: 1px solid #e1e4e5;
-    border-radius: 3px;
-    padding: 3px 6px;
+    border-radius: 4px;
+    padding: 4px 8px;
     font-size: 11px;
+    font-family: monospace;
     color: #404040;
     cursor: pointer;
     z-index: 10;
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity 0.2s ease, background-color 0.2s ease;
 }
 
+/* Show copy button on hover */
 pre:hover .copy-code-button {
     opacity: 1;
 }
 
+/* Copy button hover effect */
 .copy-code-button:hover {
     background-color: #f0f0f0;
     color: #2980b9;
+}
+
+/* Improve readability for inline code */
+code {
+    font-size: 0.95em;
+}
+
+/* Improve table spacing in docs */
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+table th,
+table td {
+    padding: 8px 10px;
+}
+
+/* Better spacing for diagrams */
+.mermaid svg {
+    max-width: 100%;
+    height: auto;
 }
