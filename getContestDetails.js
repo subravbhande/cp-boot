@@ -36,24 +36,31 @@ tomorrowDate.setDate(todayDate.getDate() + 1);
 const formattedDate = todayDate.toLocaleDateString("en-IN", {
 day: "2-digit",
 month: "2-digit",
-year: "numeric"
+year: "numeric",
+timeZone: "Asia/Kolkata"
 });
 
 const formattedDateTomo = tomorrowDate.toLocaleDateString("en-IN", {
 day: "2-digit",
 month: "2-digit",
-year: "numeric"
+year: "numeric",
+timeZone: "Asia/Kolkata"
 });
 
-const dayOfWeek = todayDate.toLocaleDateString("en-IN", { weekday: "long" });
+const dayOfWeek = todayDate.toLocaleDateString("en-IN", {
+weekday: "long",
+timeZone: "Asia/Kolkata"
+});
 const dayOfWeekTomo = tomorrowDate.toLocaleDateString("en-IN", {
-weekday: "long"
+weekday: "long",
+timeZone: "Asia/Kolkata"
 });
 
 const formatContest = (contest) => {
 const startTime = new Date(contest.start).toLocaleTimeString("en-IN", {
 hour: "2-digit",
-minute: "2-digit"
+minute: "2-digit",
+timeZone: "Asia/Kolkata"
 });
 
 
