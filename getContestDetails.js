@@ -3,9 +3,32 @@ import { setReminder } from "./reminderService.js";
 import { checkFileAndDelete, messageAdmin } from "./utility.js";
 import config from "./config.js";
 
-const CALENDAR_URL =
-"https://calendar.google.com/calendar/ical/c_9b0d1c817227b09044b85582eb3c10e6a7f4be060a77d15c39bf1fa6f0603d85%40group.calendar.google.com/public/basic.ics";
+function resolveCalendarUrl() {
+  // Prefer config-based URL, fall back to environment variable
+  const configuredUrl =
+    (config && (config.CALENDAR_URL || config.calendarUrl)) ||
+    process.env.CALENDAR_URL;
 
+  if (!configuredUrl) {
+    throw new Error(
+      "CALENDAR_URL is not configured. Set it in config.js (CALENDAR_URL/calendarUrl) or as the CALENDAR_URL environment variable."
+    );
+  }
+
+  try {
+    // Validate URL format early so the scheduler fails fast
+    // eslint-disable-next-line no-new
+    new URL(configuredUrl);
+  } catch (err) {
+    throw new Error(
+      `CALENDAR_URL is invalid: ${err && err.message ? err.message : String(err)}`
+    );
+  }
+
+  return configuredUrl;
+}
+
+const CALENDAR_URL = resolveCalendarUrl();
 function detectPlatform(name) {
 const n = name.toLowerCase();
 
